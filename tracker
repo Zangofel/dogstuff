@@ -1,1 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dog Health" />
+  <title>Hippo & Wiley</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: Georgia, serif; background: #1a1a18; color: #e8e0d0; min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+    button { font-family: Georgia, serif; cursor: pointer; }
+    input, textarea { font-family: Georgia, serif; }
+    textarea { resize: vertical; }
+    #loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #555; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+    #app { display: none; }
+    .header { border-bottom: 1px solid #333; padding: 16px 20px 14px; padding-top: calc(16px + env(safe-area-inset-top)); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .header-title-sub { font-size: 10px; letter-spacing: 3px; color: #888; text-transform: uppercase; margin-bottom: 3px; }
+    .header-title { font-size: 20px; color: #e8e0d0; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .save-status { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+    .nav-tabs { display: flex; gap: 6px; }
+    .nav-tab { border: 1px solid #444; color: #888; padding: 5px 12px; border-radius: 2px; background: transparent; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+    .dog-tabs { display: flex; border-bottom: 1px solid #222; }
+    .dog-tab { flex: 1; padding: 13px; background: transparent; border: none; border-bottom: 2px solid transparent; color: #666; font-size: 15px; }
+    .dog-tab.active { background: #222; color: #e8e0d0; }
+    .content { padding: 20px; max-width: 640px; margin: 0 auto; }
+    .section { margin-bottom: 24px; }
+    .section-label { font-size: 11px; letter-spacing: 2px; color: #888; text-transform: uppercase; display: block; margin-bottom: 10px; }
+    .date-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .date-input { background: #222; border: 1px solid #333; color: #e8e0d0; padding: 8px 12px; border-radius: 2px; font-size: 14px; }
+    .today-btn { background: transparent; border: 1px solid #333; color: #666; padding: 8px 12px; border-radius: 2px; font-size: 12px; }
+    .backfill-note { font-size: 12px; color: #666; font-style: italic; }
+    .weight-input { background: #222; border: 1px solid #333; color: #e8e0d0; padding: 8px 12px; border-radius: 2px; font-size: 14px; width: 130px; }
+    .tag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { padding: 6px 12px; border-radius: 2px; font-size: 13px; border: 1px solid #333; background: #222; color: #aaa; }
+    .tag.add-other { background: transparent; border: 1px dashed #444; color: #666; }
+    .custom-row { display: flex; gap: 8px; margin-top: 10px; }
+    .custom-input { flex: 1; background: #222; border: 1px solid #444; color: #e8e0d0; padding: 6px 10px; border-radius: 2px; font-size: 13px; }
+    .note-input { background: #222; border: 1px solid #333; color: #e8e0d0; padding: 10px 12px; border-radius: 2px; font-size: 14px; width: 100%; min-height: 80px; line-height: 1.5; }
+    .summary-box { background: #222; border: 1px solid #2a2a28; border-radius: 2px; padding: 14px 16px; }
+    .summary-label { font-size: 11px; letter-spacing: 2px; color: #888; text-transform: uppercase; margin-bottom: 10px; }
+    .summary-line { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+    .history-item { border-left: 2px solid; padding-left: 16px; margin-bottom: 20px; }
+    .history-date { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .history-line { font-size: 13px; margin-bottom: 4px; }
+    .empty-state { color: #555; font-size: 14px; font-style: italic; }
+    .ref-section { margin-bottom: 28px; }
+    .ref-title { font-size: 15px; margin-bottom: 12px; border-bottom: 1px solid #2a2a28; padding-bottom: 8px; }
+    .ref-body { font-size: 13px; color: #aaa; line-height: 1.8; }
+    .ref-key { color: #666; }
+    .toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #333; color: #e8e0d0; padding: 10px 20px; border-radius: 2px; font-size: 13px; border: 1px solid #444; z-index: 100; white-space: nowrap; }
+    .custom-add-btn { border: none; padding: 6px 14px; border-radius: 2px; font-size: 13px; color: #1a1a18; }
+  </style>
+</head>
+<body>
+  <div id="loading">Loading...</div>
+  <div id="app"></div>
+  <script>
+  (function() {
+    const DOGS = ["Hippo", "Wiley"];
+    const SUPPLEMENT_OPTIONS = {
+      Hippo: ["Milk thistle","Turkey tail","Reishi","Cleavers","Butterfly pea flower","Dandelion root","Ultra-Oil","Propectalin","Arnica","Rescue Remedy","Crab Apple essence","Pepcid","SAMe","Slippery elm"],
+      Wiley: ["Ultra-Oil","Propectalin"]
+    };
+    const BEHAVIOR_TAGS = {
+      Hippo: ["Mouse game","Settled well","Restless","Vocal/whining","Slow morning","Tremor notable","Tremor mild","Good appetite","Poor appetite","Thick saliva","Vomiting","Loose stool","Firm stool","Straining","Licking","Sneezing","Drooling","Energy good","Energy low","Bodywork session","Panting"],
+      Wiley: ["Working well","Counter surfed","Settled well","Restless","Reverse sneeze","Hiccups","Good appetite","Energy good","Energy low","Chaos event","Panting"]
+    };
+    const HIPPO_COLOR = "#b87333";
+    const WILEY_COLOR = "#4a6741";
+
+    let db = null;
+    let log = {};
+    let state = { view: "log", dog: "Hippo", date: todayStr(), showCustom: false, customVal: "" };
+
+    function todayStr() {
+      return new Date().toISOString().split("T")[0];
+    }
+    function daysAgo(n) {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString().split("T")[0];
+    }
+    function formatDate(s) {
+      const d = new Date(s + "T12:00:00");
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    function ac() { return state.dog === "Hippo" ? HIPPO_COLOR : WILEY_COLOR; }
+    function dogColor(dog) { return dog === "Hippo" ? HIPPO_COLOR : WILEY_COLOR; }
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("DogHealthDB", 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore("entries", { keyPath: "id" });
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e);
+      });
+    }
+    function loadLog() {
+      return new Promise(resolve => {
+        try {
+          const tx = db.transaction("entries", "readonly");
+          const req = tx.objectStore("entries").get("main");
+          req.onsuccess = e => resolve(e.target.result?.data || {});
+          req.onerror = () => resolve({});
+        } catch(e) { resolve({}); }
+      });
+    }
+    function saveLog() {
+      setSaveStatus("saving");
+      try {
+        const tx = db.transaction("entries", "readwrite");
+        tx.objectStore("entries").put({ id: "main", data: log });
+        tx.oncomplete = () => setSaveStatus("saved");
+        tx.onerror = () => setSaveStatus("error");
+      } catch(e) { setSaveStatus("error"); }
+    }
+    function setSaveStatus(s) {
+      const el = document.getElementById("save-status");
+      if (!el) return;
+      if (s === "saved") { el.textContent = "✓ saved"; el.style.color = "#4a6741"; }
+      else if (s === "saving") { el.textContent = "saving..."; el.style.color = "#888"; }
+      else { el.textContent = "⚠ error"; el.style.color = "#c0392b"; }
+    }
+    function getEntry() {
+      return log[state.dog]?.[state.date] || { supplements: [], behaviors: [], note: "", weight: "" };
+    }
+    function setEntry(entry) {
+      if (!log[state.dog]) log[state.dog] = {};
+      log[state.dog][state.date] = entry;
+      saveLog();
+    }
+    function showToast(msg) {
+      const existing = document.querySelector(".toast");
+      if (existing) existing.remove();
+      const t = document.createElement("div");
+      t.className = "toast";
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2000);
+    }
+    function toggleField(field, item) {
+      const entry = Object.assign({ supplements: [], behaviors: [], note: "", weight: "" }, getEntry());
+      entry[field] = [...(entry[field] || [])];
+      const idx = entry[field].indexOf(item);
+      if (idx >= 0) { entry[field].splice(idx, 1); showToast("Removed: " + item); }
+      else { entry[field].push(item); showToast("Logged: " + item); }
+      setEntry(entry);
+      render();
+    }
+    function getHistory() {
+      const items = [];
+      for (let i = 0; i < 60; i++) {
+        const date = daysAgo(i);
+        const e = log[state.dog]?.[date];
+        if (e && (e.supplements?.length || e.behaviors?.length || e.note || e.weight)) items.push({ date, e });
+      }
+      return items;
+    }
+
+    function render() {
+      const app = document.getElementById("app");
+      const color = ac();
+      const entry = getEntry();
+      const supps = SUPPLEMENT_OPTIONS[state.dog];
+      const behaviors = BEHAVIOR_TAGS[state.dog];
+      const customSupps = (entry.supplements || []).filter(s => !supps.includes(s));
+      const hasData = entry.supplements?.length || entry.behaviors?.length || entry.weight;
+      const histItems = getHistory();
+
+      let html = `
+        <div class="header">
+          <div>
+            <div class="header-title-sub">FYS Canine Health</div>
+            <div class="header-title">Hippo &amp; Wiley</div>
+          </div>
+          <div class="header-right">
+            <span id="save-status" class="save-status" style="color:#4a6741">✓ saved</span>
+            <div class="nav-tabs">
+              <button class="nav-tab" data-action="nav" data-val="log" style="${state.view==='log'?`background:${color};border-color:${color};color:#1a1a18`:''}">log</button>
+              <button class="nav-tab" data-action="nav" data-val="history" style="${state.view==='history'?`background:${color};border-color:${color};color:#1a1a18`:''}">history</button>
+              <button class="nav-tab" data-action="nav" data-val="notes" style="${state.view==='notes'?`background:${color};border-color:${color};color:#1a1a18`:''}">notes</button>
+            </div>
+          </div>
+        </div>
+        <div class="dog-tabs">
+          <button class="dog-tab${state.dog==='Hippo'?' active':''}" data-action="dog" data-val="Hippo" style="${state.dog==='Hippo'?`border-bottom-color:${HIPPO_COLOR}`:''}">Hippo 🐾</button>
+          <button class="dog-tab${state.dog==='Wiley'?' active':''}" data-action="dog" data-val="Wiley" style="${state.dog==='Wiley'?`border-bottom-color:${WILEY_COLOR}`:''}">Wiley ⭐</button>
+        </div>
+        <div class="content">`;
+
+      if (state.view === "log") {
+        html += `
+          <div class="section">
+            <span class="section-label">Date</span>
+            <div class="date-row">
+              <input class="date-input" type="date" value="${state.date}" data-action="date" />
+              <button class="today-btn" data-action="today">Today</button>
+              ${state.date !== todayStr() ? `<span class="backfill-note">backfilling ${formatDate(state.date)}</span>` : ""}
+            </div>
+          </div>`;
+
+        if (state.dog === "Hippo") {
+          html += `
+          <div class="section">
+            <span class="section-label">Weight (lbs)</span>
+            <input class="weight-input" type="number" step="0.1" value="${entry.weight || ''}" placeholder="e.g. 53.2" data-action="weight" />
+          </div>`;
+        }
+
+        html += `<div class="section"><span class="section-label">Supplements given</span><div class="tag-grid">`;
+        supps.forEach(s => {
+          const active = entry.supplements?.includes(s);
+          html += `<button class="tag" data-action="supp" data-val="${encodeURIComponent(s)}" style="${active ? `background:${color};border-color:${color};color:#1a1a18` : ''}">${s}</button>`;
+        });
+        customSupps.forEach(s => {
+          html += `<button class="tag" data-action="supp" data-val="${encodeURIComponent(s)}" style="background:${color};border-color:${color};color:#1a1a18">${s} ×</button>`;
+        });
+        html += `<button class="tag add-other" data-action="showcustom">+ other</button></div>`;
+
+        if (state.showCustom) {
+          html += `<div class="custom-row">
+            <input class="custom-input" id="custom-input" placeholder="Supplement name..." value="${state.customVal}" data-action="customval" />
+            <button class="custom-add-btn" data-action="addcustom" style="background:${color}">Add</button>
+          </div>`;
+        }
+        html += `</div>`;
+
+        html += `<div class="section"><span class="section-label">Observations</span><div class="tag-grid">`;
+        behaviors.forEach(b => {
+          const active = entry.behaviors?.includes(b);
+          html += `<button class="tag" data-action="behav" data-val="${encodeURIComponent(b)}" style="${active ? 'background:#333;border-color:#666;color:#e8e0d0' : ''}">${b}</button>`;
+        });
+        html += `</div></div>`;
+
+        html += `<div class="section">
+          <span class="section-label">Notes</span>
+          <textarea class="note-input" data-action="note" placeholder="Anything worth noting today...">${entry.note || ''}</textarea>
+        </div>`;
+
+        if (hasData) {
+          html += `<div class="summary-box">
+            <div class="summary-label">${state.date === todayStr() ? "Today's log" : "Log — " + formatDate(state.date)}</div>
+            ${entry.weight ? `<div class="summary-line"><span style="color:#888">Weight:</span> ${entry.weight} lbs</div>` : ""}
+            ${entry.supplements?.length ? `<div class="summary-line"><span style="color:${color}">Supplements:</span> ${entry.supplements.join(", ")}</div>` : ""}
+            ${entry.behaviors?.length ? `<div class="summary-line"><span style="color:#888">Observations:</span> ${entry.behaviors.join(", ")}</div>` : ""}
+            ${entry.note ? `<div class="summary-line" style="color:#777;font-style:italic">${entry.note}</div>` : ""}
+          </div>`;
+        }
+      }
+
+      if (state.view === "history") {
+        html += `<div style="font-size:11px;letter-spacing:2px;color:#888;text-transform:uppercase;margin-bottom:16px">Last 60 days — ${state.dog}</div>`;
+        if (!histItems.length) {
+          html += `<div class="empty-state">No entries yet for this period.</div>`;
+        } else {
+          histItems.forEach(({ date, e }) => {
+            html += `<div class="history-item" style="border-left-color:${dogColor(state.dog)}">
+              <div class="history-date">${formatDate(date)}</div>
+              ${e.weight ? `<div class="history-line" style="color:#aaa">⚖️ ${e.weight} lbs</div>` : ""}
+              ${e.supplements?.length ? `<div class="history-line" style="color:#c0a882">${e.supplements.join(" · ")}</div>` : ""}
+              ${e.behaviors?.length ? `<div class="history-line" style="color:#888">${e.behaviors.join(" · ")}</div>` : ""}
+              ${e.note ? `<div class="history-line" style="color:#777;font-style:italic">${e.note}</div>` : ""}
+            </div>`;
+          });
+        }
+      }
+
+      if (state.view === "notes") {
+        html += `
+          <div style="font-size:11px;letter-spacing:2px;color:#888;text-transform:uppercase;margin-bottom:20px">Reference</div>
+          <div class="ref-section">
+            <div class="ref-title" style="color:${HIPPO_COLOR}">Hippo — TCM Profile</div>
+            <div class="ref-body">
+              <div><span class="ref-key">Matrix:</span> Warm · Damp · Tense</div>
+              <div><span class="ref-key">Pattern:</span> Earth deficiency (root) · Wood stagnation bullying Earth · Damp-heat · Phlegm accumulation · Internal wind · Shen disturbance</div>
+              <div><span class="ref-key">Key values:</span> ALT 260 (H) · ALKP 222 (H) · Cholesterol 348 (H) · Phosphorus 1.4 (L) · Urine protein 300 (H) · Urine pH 9 (H)</div>
+              <div><span class="ref-key">Pending:</span> Tooth extraction (exposed pulp, upper carnassial)</div>
+              <div><span class="ref-key">Weight trend:</span> 63.5 peak (late 2023) → 53.2 (Jun 2026)</div>
+            </div>
+          </div>
+          <div class="ref-section">
+            <div class="ref-title" style="color:${HIPPO_COLOR}">Hippo — Herbal Protocol</div>
+            <div class="ref-body">
+              <div><span class="ref-key">Active:</span> Milk thistle seed (1 tsp ground, 2x daily in Ultra-Oil)</div>
+              <div><span class="ref-key">Next:</span> Butterfly pea flower (nervine stabilization)</div>
+              <div><span class="ref-key">Following:</span> Turkey tail + Reishi decoction (frozen in ice cubes)</div>
+              <div><span class="ref-key">On hand:</span> Cleavers · Calendula · Yarrow · Turmeric (titrate slowly) · Pepcid 10mg as needed</div>
+              <div><span class="ref-key">Approach:</span> Rita Hogan — stabilize nervous system first, then layer deeper support</div>
+            </div>
+          </div>
+          <div class="ref-section">
+            <div class="ref-title" style="color:${WILEY_COLOR}">Wiley — TCM Profile</div>
+            <div class="ref-body">
+              <div><span class="ref-key">Matrix:</span> Cool · Dry (mild) — monitor for heat shift</div>
+              <div><span class="ref-key">Labs:</span> Pristine (Jun 2026)</div>
+              <div><span class="ref-key">DOB:</span> August 19, 2019 — currently 6</div>
+              <div><span class="ref-key">Active:</span> Ultra-Oil daily — do not let lapse</div>
+              <div><span class="ref-key">Watch:</span> Panting at rest in mild temps · Reverse sneeze after treats · Hiccups since puppyhood</div>
+            </div>
+          </div>
+          <div class="ref-section">
+            <div class="ref-title" style="color:#888;font-size:13px;letter-spacing:1px;text-transform:uppercase">Bodywork</div>
+            <div class="ref-body">Karen — mobile massage/reiki · log sessions under Hippo observations</div>
+          </div>`;
+      }
+
+      html += `</div>`;
+      app.innerHTML = html;
+      attachEvents();
+    }
+
+    function attachEvents() {
+      document.getElementById("app").addEventListener("click", handleClick);
+      const dateInput = document.querySelector("[data-action='date']");
+      if (dateInput) dateInput.addEventListener("change", e => { state.date = e.target.value; render(); });
+      const weightInput = document.querySelector("[data-action='weight']");
+      if (weightInput) weightInput.addEventListener("change", e => {
+        const entry = Object.assign({ supplements: [], behaviors: [], note: "", weight: "" }, getEntry());
+        entry.weight = e.target.value;
+        setEntry(entry);
+      });
+      const noteInput = document.querySelector("[data-action='note']");
+      if (noteInput) noteInput.addEventListener("input", e => {
+        const entry = Object.assign({ supplements: [], behaviors: [], note: "", weight: "" }, getEntry());
+        entry.note = e.target.value;
+        setEntry(entry);
+      });
+      const customValInput = document.querySelector("[data-action='customval']");
+      if (customValInput) {
+        customValInput.addEventListener("input", e => { state.customVal = e.target.value; });
+        customValInput.addEventListener("keydown", e => { if (e.key === "Enter") addCustom(); });
+        setTimeout(() => customValInput.focus(), 50);
+      }
+    }
+
+    function handleClick(e) {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const val = btn.dataset.val;
+      if (action === "nav") { state.view = val; render(); }
+      else if (action === "dog") { state.dog = val; render(); }
+      else if (action === "today") { state.date = todayStr(); render(); }
+      else if (action === "supp") { toggleField("supplements", decodeURIComponent(val)); }
+      else if (action === "behav") { toggleField("behaviors", decodeURIComponent(val)); }
+      else if (action === "showcustom") { state.showCustom = !state.showCustom; state.customVal = ""; render(); }
+      else if (action === "addcustom") { addCustom(); }
+    }
+
+    function addCustom() {
+      const s = state.customVal.trim();
+      if (!s) return;
+      toggleField("supplements", s);
+      state.showCustom = false;
+      state.customVal = "";
+    }
+
+    async function init() {
+      try {
+        db = await openDB();
+        log = await loadLog();
+      } catch(e) {
+        console.error("DB init failed:", e);
+      }
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      render();
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>
 
